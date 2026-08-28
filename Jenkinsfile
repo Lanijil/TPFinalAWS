@@ -1,7 +1,7 @@
 pipeline {
     agent any
     environment {
-        TF_DIR = "terraform/k8s/synchro-jenkins"
+        TF_DIR = "terraform/k8s"
     }
     stages {
         stage("Checkout") {
@@ -24,6 +24,6 @@ pipeline {
         }
     }
     post {
-        always { archiveArtifacts artifacts: "terraform/k8s/synchro-jenkins/tfplan", allowEmptyArchive: true }
+        always { archiveArtifacts artifacts: "terraform/k8s/tfplan", allowEmptyArchive: true }
     }
 }
