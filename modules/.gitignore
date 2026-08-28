@@ -1,0 +1,18 @@
+# État Terraform : contient des données sensibles, jamais dans Git
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+
+# Variables locales (peuvent contenir des valeurs propres au lab)
+terraform.tfvars
+*.auto.tfvars
+
+# Plans binaires
+tfplan
+*.tfplan
+
+# Identifiants AWS — ne doivent JAMAIS être versionnés
+.env
+credentials
