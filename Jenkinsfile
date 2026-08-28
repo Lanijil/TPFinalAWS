@@ -98,7 +98,7 @@ pipeline {
           terraform apply -no-color -auto-approve \
             -target=module.ecs.aws_ecr_repository.app \
             -var="image_tag=${IMAGE_TAG}"
-          ./scripts/build-push.sh "${IMAGE_TAG}"
+          bash ./scripts/build-push.sh "${IMAGE_TAG}"
         '''
       }
     }
