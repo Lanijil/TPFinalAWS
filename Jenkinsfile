@@ -1,5 +1,8 @@
 // Pipeline unique : validate -> plan -> approbation -> apply
-// Cible ECS Fargate. La session AWS Academy doit etre active (cf. README §1).
+// Pilote les DEUX cibles (module.ecs + module.k8s) depuis la meme racine
+// Terraform : un seul plan, une seule approbation, un seul apply.
+// La session AWS Academy doit etre active (cf. README §1) et le contexte
+// kubectl "minikube" doit exister (cf. README) pour la cible Kubernetes.
 
 pipeline {
   agent any
@@ -80,6 +83,9 @@ pipeline {
 
     // Amorcage : le service ECS ne demarre que si l'image existe deja dans ECR,
     // alors que le depot ECR est lui-meme cree par Terraform (README §2).
+    // build-push.sh pousse aussi la meme image dans Minikube (module.k8s
+    // reference l'image locale, pas ECR : pas de registre prive pour le
+    // cluster local).
     stage('Build & Push') {
       when { expression { params.BUILD_IMAGE && !params.DESTROY } }
       steps {
@@ -115,8 +121,8 @@ pipeline {
         timeout(time: 20, unit: 'MINUTES') {
           input(
             message: params.DESTROY
-              ? "DESTRUCTION de la stack. Confirmer ?"
-              : "Appliquer le plan (image ${params.IMAGE_TAG}) ?",
+              ? "DESTRUCTION des DEUX cibles (ECS + Kubernetes). Confirmer ?"
+              : "Appliquer le plan ECS + Kubernetes (image ${params.IMAGE_TAG}) ?",
             ok: 'Appliquer'
           )
         }
@@ -129,20 +135,20 @@ pipeline {
       }
     }
 
-    stage('Verification') {
+    stage('Verification ECS') {
       when { expression { !params.DESTROY } }
       steps {
         sh '''
           set -euo pipefail
 
           URL=$(terraform output -raw ecs_url)
-          echo "==> Application publiee sur ${URL}"
+          echo "==> Application ECS publiee sur ${URL}"
 
           # L'ALB met un moment a declarer les cibles saines apres un deploiement.
           for i in $(seq 1 30); do
             CODE=$(curl -s -o /dev/null -w '%{http_code}' "${URL}/health" || true)
             if [ "$CODE" = "200" ]; then
-              echo "==> /health OK"
+              echo "==> /health OK (ECS)"
               curl -s "${URL}/whoami"
               exit 0
             fi
@@ -150,8 +156,24 @@ pipeline {
             sleep 10
           done
 
-          echo "L'application ne repond pas 200 sur /health apres 5 minutes." >&2
+          echo "L'application ECS ne repond pas 200 sur /health apres 5 minutes." >&2
           exit 1
+        '''
+      }
+    }
+
+    stage('Verification Kubernetes') {
+      when { expression { !params.DESTROY } }
+      steps {
+        sh '''
+          set -euo pipefail
+
+          NAME=web-ipssi
+          echo "==> Attente du rollout Kubernetes (deployment/${NAME})"
+          kubectl rollout status "deployment/${NAME}" --timeout=180s
+
+          kubectl get "deployment/${NAME}" "service/${NAME}-svc" \
+            "ingress/${NAME}-ingress" "hpa/${NAME}-hpa"
         '''
       }
     }
