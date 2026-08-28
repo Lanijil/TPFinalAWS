@@ -30,6 +30,10 @@ pipeline {
     REGION            = 'us-east-1'
     TF_IN_AUTOMATION  = 'true'
     TF_INPUT          = '0'
+    // Au tout premier build d'un pipeline parametre, Jenkins n'a pas encore
+    // enregistre les "parameters {}" ci-dessus : params.IMAGE_TAG vaut null.
+    // On retombe alors sur la defaultValue declaree plus haut.
+    IMAGE_TAG         = "${params.IMAGE_TAG ?: '1.0.0'}"
   }
 
   options {
@@ -106,7 +110,7 @@ pipeline {
           sh """
             set -euo pipefail
             terraform plan -no-color ${destroyFlag} \
-              -var="image_tag=${params.IMAGE_TAG}" \
+              -var="image_tag=${env.IMAGE_TAG}" \
               -out=tfplan
             terraform show -no-color tfplan > plan.txt
           """
@@ -122,7 +126,7 @@ pipeline {
           input(
             message: params.DESTROY
               ? "DESTRUCTION des DEUX cibles (ECS + Kubernetes). Confirmer ?"
-              : "Appliquer le plan ECS + Kubernetes (image ${params.IMAGE_TAG}) ?",
+              : "Appliquer le plan ECS + Kubernetes (image ${env.IMAGE_TAG}) ?",
             ok: 'Appliquer'
           )
         }
