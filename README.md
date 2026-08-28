@@ -3,7 +3,7 @@
 Deploiement d'une meme application conteneurisee sur **Amazon ECS Fargate** et sur
 **Kubernetes (Minikube)**, decrit en **Terraform** et pilote par un **pipeline Jenkins** unique.
 
-IPSSI — Mastere Cybersecurite. Binome : NOM_A (ECS) / NOM_B (Kubernetes).
+IPSSI — Mastere Cybersecurite. Binome : Jilani LESSUEUR (ECS) / Benit Landry MUSINDI (Kubernetes).
 
 ## Arborescence
 
