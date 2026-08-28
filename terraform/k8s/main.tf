@@ -1,7 +1,3 @@
-# Ce fichier est un EXEMPLE pour tester votre module K8s en isolation.
-# Dans le vrai dépôt du binôme, ce sera fusionné avec le main.tf racine
-# qui appelle aussi le module "ecs" (partie de votre collègue).
-
 terraform {
   required_providers {
     kubernetes = {
