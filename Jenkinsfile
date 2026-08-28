@@ -5,22 +5,22 @@ pipeline {
             steps { checkout scm }
         }
         stage("Init") {
-            steps { sh "terraform init -input=false" }
+            steps { dir("terraform") { sh "terraform init -input=false" } }
         }
         stage("Validate") {
-            steps { sh "terraform fmt -check && terraform validate" }
+            steps { dir("terraform") { sh "terraform fmt -check && terraform validate" } }
         }
         stage("Plan") {
-            steps { sh "terraform plan -out=tfplan -input=false" }
+            steps { dir("terraform") { sh "terraform plan -out=tfplan -input=false" } }
         }
         stage("Approve") {
             steps { input message: "Appliquer le plan ?" }
         }
         stage("Apply") {
-            steps { sh "terraform apply -input=false tfplan" }
+            steps { dir("terraform") { sh "terraform apply -input=false tfplan" } }
         }
     }
     post {
-        always { archiveArtifacts artifacts: "tfplan", allowEmptyArchive: true }
+        always { archiveArtifacts artifacts: "terraform/tfplan", allowEmptyArchive: true }
     }
 }
