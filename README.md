@@ -28,12 +28,9 @@ Recuperer access key / secret / session token via **AWS Details → AWS CLI**,
 puis les coller dans `~/.aws/credentials`. Ils expirent a chaque fin de session.
 
 ```bash
-aws sts get-caller-identity   # doit repondre avant tout terraform apply
+aws sts get-caller-identity
 aws configure list | grep region
 ```
-
-> Une erreur `ExpiredToken` en cours d'`apply` laisse un state incoherent.
-> Verifier la session avant chaque execution.
 
 ## 2. Deploiement initial (sequence en deux temps)
 
@@ -43,64 +40,20 @@ uniquement la premiere fois.
 
 ```bash
 terraform init
-terraform apply -target=module.ecs.aws_ecr_repository.app   # 1. le depot seul
-./scripts/build-push.sh 1.0.0                               # 2. build + push
-terraform apply                                             # 3. tout le reste
+terraform apply -target=module.ecs.aws_ecr_repository.app
+./scripts/build-push.sh 1.0.0
+terraform apply
 ```
 
 Ensuite, un simple `terraform apply` suffit : le pipeline Jenkins n'applique
-que les differences (idempotence).
+que les differences.
 
 ## 3. Verification
 
 ```bash
-terraform output ecs_url          # URL de l'ALB
+terraform output ecs_url
 curl "$(terraform output -raw ecs_url)/whoami"
 
 kubectl get deploy,svc,ingress -n prod
 curl http://web.ipssi.local/whoami
 ```
-
-## 4. Destruction / recreation from scratch
-
-```bash
-terraform destroy
-# puis reprendre la sequence du point 2
-```
-
-## 5. Pieges connus
-
-**Le depot ECR est en `IMMUTABLE`.** Un tag deja pousse ne peut pas etre ecrase :
-`./scripts/build-push.sh 1.0.0` echouera si `1.0.0` existe deja. C'est voulu (un
-tag designe toujours la meme image), mais cela veut dire qu'une image erronee
-poussee sous `1.0.0` reste bloquee. Deux issues :
-
-```bash
-# soit on incremente (a privilegier)
-./scripts/build-push.sh 1.0.1
-terraform apply -var="image_tag=1.0.1"
-
-# soit on supprime l'image avant de repousser le meme tag
-aws ecr batch-delete-image --repository-name web-ipssi \
-  --image-ids imageTag=1.0.0 --region us-east-1
-```
-
-**Symptome type d'une mauvaise image :** le service ECS affiche bien 2 taches
-`RUNNING`, mais l'ALB renvoie 503 et les cibles sont `unhealthy` avec
-`Target.ResponseCodeMismatch ... [404]`. La sonde `/health` n'existe pas dans
-l'image servie : c'est l'image qui est en cause, pas l'infra.
-
-```bash
-aws elbv2 describe-target-health --target-group-arn "$(
-  aws elbv2 describe-target-groups --names web-ipssi-tg \
-    --query 'TargetGroups[0].TargetGroupArn' --output text)"
-```
-
-**La suppression de l'ALB prend plusieurs minutes.** Un `terraform destroy`
-interrompu laisse le load balancer et son security group dans le state ;
-relancer simplement `terraform destroy` termine le travail.
-
-## Nommage
-
-Repris des TP : depot `web-ipssi`, cluster `ipssi-ecs`, service `web-svc`,
-region `us-east-1`, execution role `LabRole`, tag d'image `1.0.0` (jamais `latest`).
